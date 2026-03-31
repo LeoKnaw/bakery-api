@@ -3,9 +3,17 @@ API client for communicating with the bakery FastAPI backend.
 """
 
 import requests
+import os
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_URL = "http://localhost:8000"
+API_KEY = os.getenv("API_KEY", "bakery-secret-key-2026")
+
+# Headers with API key for authenticated requests
+HEADERS = {"X-API-Key": API_KEY}
 
 
 def get_products() -> list:
@@ -18,7 +26,9 @@ def get_products() -> list:
 def create_product(name: str, price: float) -> dict:
     """Create a new product."""
     response = requests.post(
-        f"{BASE_URL}/fadel/products", json={"name": name, "price": price}
+        f"{BASE_URL}/fadel/products",
+        json={"name": name, "price": price},
+        headers=HEADERS,
     )
     response.raise_for_status()
     return response.json()
@@ -34,14 +44,21 @@ def update_product(
     if price is not None:
         payload["price"] = price
 
-    response = requests.put(f"{BASE_URL}/fadel/products/{product_id}", json=payload)
+    response = requests.put(
+        f"{BASE_URL}/fadel/products/{product_id}",
+        json=payload,
+        headers=HEADERS,
+    )
     response.raise_for_status()
     return response.json()
 
 
 def delete_product(product_id: str) -> None:
     """Delete a product."""
-    response = requests.delete(f"{BASE_URL}/fadel/delete/{product_id}")
+    response = requests.delete(
+        f"{BASE_URL}/fadel/delete/{product_id}",
+        headers=HEADERS,
+    )
     response.raise_for_status()
 
 
@@ -50,6 +67,7 @@ def record_production(product_id: str, quantity: int) -> dict:
     response = requests.post(
         f"{BASE_URL}/fadel/production",
         json={"product_id": product_id, "quantity": quantity},
+        headers=HEADERS,
     )
     response.raise_for_status()
     return response.json()
@@ -69,7 +87,11 @@ def create_sale(items: list[dict]) -> dict:
     items: list of {"product_id": str, "quantity": int, "sale_type": str}
     """
     try:
-        response = requests.post(f"{BASE_URL}/sales", json={"items": items})
+        response = requests.post(
+            f"{BASE_URL}/sales",
+            json={"items": items},
+            headers=HEADERS,
+        )
         response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as e:

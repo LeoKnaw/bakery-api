@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 # Product Schema
 class Product(BaseModel):
     __tablename__ = "products"
-    name: str
-    price: float = Field(gt=0)
+    name: str = Field(min_length=1, max_length=100)
+    price: float = Field(gt=0, le=1000000)  # Max 1 million
 
 
 class ProductCreate(Product):
@@ -31,8 +31,8 @@ class ProductResponse(Product):
 
 
 class ProductUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1)
-    price: Optional[float] = Field(gt=0)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    price: Optional[float] = Field(default=None, gt=0, le=1000000)
 
 
 # Production Schema
@@ -48,7 +48,7 @@ class ProductInfo(BaseModel):
 
 class ProductionCreate(BaseModel):
     product_id: UUID
-    quantity: int = Field(gt=0)
+    quantity: int = Field(gt=0, le=100000)  # Max 100k units
 
     class Config:
         from_attributes = True
@@ -66,9 +66,11 @@ class ProductionRecord(BaseModel):
 
 class SaleItemCreate(BaseModel):
     product_id: UUID
-    quantity: int
-    sale_type: str = "retail"  # retail, wholesale, supply
+    quantity: int = Field(gt=0, le=100000)  # Max 100k units
+    sale_type: str = Field(default="retail", pattern="^(retail|wholesale|supply)$")
 
 
 class SaleCreate(BaseModel):
-    items: list[SaleItemCreate]
+    items: List[SaleItemCreate] = Field(
+        min_length=1, max_length=50
+    )  # Max 50 items per sale

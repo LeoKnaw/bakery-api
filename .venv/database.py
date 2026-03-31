@@ -4,10 +4,11 @@ import os
 from dotenv import load_dotenv
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-dotenv_path = os.path.join(current_dir, '.env')
+dotenv_path = os.path.join(current_dir, ".env")
 load_dotenv(dotenv_path=dotenv_path)
 
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+API_KEY = os.getenv("API_KEY", "default-change-me")
 
 if not DATABASE_PASSWORD:
     raise ValueError(

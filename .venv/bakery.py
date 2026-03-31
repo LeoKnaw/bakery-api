@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from typing import Optional, List
 from schema import (
@@ -12,14 +13,31 @@ from schema import (
     SaleItemCreate,
 )
 from models import Base, Product, Production, Sale, SaleItem
-from database import Base, engine, SessionLocal
+from database import Base, engine, SessionLocal, API_KEY
 from uuid import uuid4, UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime, date
 
 app = FastAPI()
+
+# CORS middleware - restrict access to your Streamlit app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
 Base.metadata.create_all(bind=engine)
+
+
+# API Key authentication dependency
+def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """Verify API key for protected endpoints. GET requests are public."""
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API Key")
 
 
 def get_db():
@@ -35,7 +53,11 @@ async def get_products(db: Session = Depends(get_db)):
     return db.query(Product).all()
 
 
-@app.post("/fadel/products", response_model=ProductResponse)
+@app.post(
+    "/fadel/products",
+    response_model=ProductResponse,
+    dependencies=[Depends(verify_api_key)],
+)
 async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db_product = Product(name=product.name, price=product.price)
     db.add(db_product)
@@ -44,7 +66,11 @@ async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     return db_product
 
 
-@app.put("/fadel/products/{product_id}", response_model=ProductResponse)
+@app.put(
+    "/fadel/products/{product_id}",
+    response_model=ProductResponse,
+    dependencies=[Depends(verify_api_key)],
+)
 async def update_product(
     product_id: UUID, updated: ProductUpdate, db: Session = Depends(get_db)
 ):
@@ -61,7 +87,7 @@ async def update_product(
     return product
 
 
-@app.delete("/fadel/delete/{product_id}")
+@app.delete("/fadel/delete/{product_id}", dependencies=[Depends(verify_api_key)])
 async def delete_product(product_id: UUID, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
 
@@ -78,7 +104,11 @@ async def delete_product(product_id: UUID, db: Session = Depends(get_db)):
 
 
 # creating a new product. like baking a bread
-@app.post("/fadel/production", response_model=ProductionRecord)
+@app.post(
+    "/fadel/production",
+    response_model=ProductionRecord,
+    dependencies=[Depends(verify_api_key)],
+)
 async def create_production(
     production: ProductionCreate, db: Session = Depends(get_db)
 ):
@@ -105,7 +135,7 @@ async def get_production_records(db: Session = Depends(get_db)):
     return db.query(Production).all()
 
 
-@app.post("/sales")
+@app.post("/sales", dependencies=[Depends(verify_api_key)])
 def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
     # First pass: validate all items have sufficient stock
     insufficient = []
