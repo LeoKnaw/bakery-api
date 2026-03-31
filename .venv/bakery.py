@@ -154,8 +154,8 @@ def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
         # Supply sales have no price (not a sale, just tracking inventory)
         if sale_type == "supply":
             effective_price = 0
-        elif qty >= 5:
-            effective_price = (product.price * qty) * 0.9
+        elif sale_type == "wholesale" or qty >= 5:
+            effective_price = product.price * 0.9  # 10% off per unit
         else:
             effective_price = product.price
 
