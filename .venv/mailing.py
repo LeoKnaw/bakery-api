@@ -6,6 +6,7 @@ from database import get_db
 from fastapi import FastAPI, HTTPException, Depends
 import smtplib
 import os
+import api_client
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -27,41 +28,21 @@ def get_daily_report(db, report_date: date = None):
     products = db.query(Product).all()
 
     for product in products:
-        # Previous day closing stock
-        prev_day = report_date - timedelta(days=1)
-        previous_production = (
-            db.query(func.coalesce(func.sum(Production.quantity), 0))
-            .filter(
-                Production.product_id == product.id, Production.timestamp <= prev_day
-            )
-            .scalar()
+        # Get opening stock and production from API
+        inventory = api_client.get_inventory(
+            str(product.id), for_date=report_date.isoformat()
         )
-        previous_sales_qty = (
-            db.query(func.coalesce(func.sum(SaleItem.quantity), 0))
-            .join(Sale, Sale.id == SaleItem.sale_id)
-            .filter(SaleItem.product_id == product.id, Sale.timestamp <= prev_day)
-            .scalar()
-        )
-        opening_stock = max(previous_production - previous_sales_qty, 0)
+        opening_stock = inventory["opening_stock"]
+        production_today = inventory["production_stock"]
 
-        # Production today
-        production_today = (
-            db.query(func.coalesce(func.sum(Production.quantity), 0))
-            .filter(
-                Production.product_id == product.id,
-                func.date(Production.timestamp) == report_date,
-            )
-            .scalar()
-        )
-
-        # Wholesale sales today (price < product price = discount applied)
+        # Wholesale sales today (quantity >= 5)
         wholesale_qty = (
             db.query(func.coalesce(func.sum(SaleItem.quantity), 0))
             .join(Sale, Sale.id == SaleItem.sale_id)
             .filter(
                 SaleItem.product_id == product.id,
                 func.date(Sale.timestamp) == report_date,
-                SaleItem.price < product.price,
+                SaleItem.quantity >= 5,
             )
             .scalar()
         )
@@ -71,19 +52,19 @@ def get_daily_report(db, report_date: date = None):
             .filter(
                 SaleItem.product_id == product.id,
                 func.date(Sale.timestamp) == report_date,
-                SaleItem.price < product.price,
+                SaleItem.quantity >= 5,
             )
             .scalar()
         )
 
-        # Retail sales today (price == product price = no discount)
+        # Retail sales today (quantity < 5)
         retail_qty = (
             db.query(func.coalesce(func.sum(SaleItem.quantity), 0))
             .join(Sale, Sale.id == SaleItem.sale_id)
             .filter(
                 SaleItem.product_id == product.id,
                 func.date(Sale.timestamp) == report_date,
-                SaleItem.price >= product.price,
+                SaleItem.quantity < 5,
             )
             .scalar()
         )
@@ -93,7 +74,7 @@ def get_daily_report(db, report_date: date = None):
             .filter(
                 SaleItem.product_id == product.id,
                 func.date(Sale.timestamp) == report_date,
-                SaleItem.price >= product.price,
+                SaleItem.quantity < 5,
             )
             .scalar()
         )
