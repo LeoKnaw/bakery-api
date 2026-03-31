@@ -147,6 +147,10 @@ def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
         qty = item.quantity
         sale_type = item.sale_type or "retail"
 
+        # Auto-classify as wholesale if quantity >= 5
+        if sale_type == "retail" and qty >= 5:
+            sale_type = "wholesale"
+
         # Supply sales have no price (not a sale, just tracking inventory)
         if sale_type == "supply":
             effective_price = 0

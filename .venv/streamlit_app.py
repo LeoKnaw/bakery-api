@@ -189,7 +189,12 @@ def show_new_sale():
             st.write("")
             st.write("")
             if st.button("Add to Cart"):
-                sale_type = "supply" if is_supply else "retail"
+                if is_supply:
+                    sale_type = "supply"
+                elif quantity >= 5:
+                    sale_type = "wholesale"
+                else:
+                    sale_type = "retail"
                 # Check if product already in cart with same sale_type
                 for item in st.session_state.cart:
                     if (
