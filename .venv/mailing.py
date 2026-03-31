@@ -92,7 +92,10 @@ def get_daily_report(db, report_date: date = None):
     return report_rows
 
 
-def format_report_html(report_rows, report_date):
+def format_report_html(report, report_date):
+    report_rows = report["rows"]
+    totals = report["totals"]
+
     html = f"<h2>Bakery Daily Report: {report_date}</h2>"
     html += "<table border='1' cellpadding='5' cellspacing='0'>"
     html += "<tr><th>Product</th><th>Opening Stock</th><th>Production</th><th>Sales Qty</th><th>Total Sales</th><th>Closing Stock</th></tr>"
