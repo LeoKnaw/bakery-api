@@ -22,6 +22,10 @@ def show_products():
     """Products page - view, add, edit, delete products."""
     st.header("Products")
 
+    # Initialize session state for editing
+    if "editing_product" not in st.session_state:
+        st.session_state.editing_product = None
+
     # Add new product form
     with st.expander("Add New Product", expanded=False):
         with st.form("add_product"):
@@ -57,21 +61,58 @@ def show_products():
         st.markdown("---")
 
         for product in products:
-            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
-            with col1:
-                st.write(f"**{product['name']}**")
-            with col2:
-                st.write(f"₦{product['price']:.2f}")
-            with col3:
-                st.write(f"₦{product['wholesale_price']:.2f}")
-            with col4:
-                if st.button("Delete", key=f"del_{product['id']}"):
-                    try:
-                        api_client.delete_product(product["id"])
-                        st.success("Deleted!")
+            # Show edit form if this product is being edited
+            if st.session_state.editing_product == product["id"]:
+                with st.form(f"edit_form_{product['id']}"):
+                    st.write(f"**Editing: {product['name']}**")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        edit_name = st.text_input("Product Name", value=product["name"])
+                    with col2:
+                        edit_price = st.number_input(
+                            "Price (₦)",
+                            min_value=50,
+                            value=int(product["price"]),
+                            step=50,
+                            format="%.2f",
+                        )
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.form_submit_button("Save", type="primary"):
+                            try:
+                                api_client.update_product(
+                                    product["id"], edit_name, edit_price
+                                )
+                                st.success("Product updated!")
+                                st.session_state.editing_product = None
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                    with col2:
+                        if st.form_submit_button("Cancel"):
+                            st.session_state.editing_product = None
+                            st.rerun()
+            else:
+                # Normal product display
+                col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 1, 1])
+                with col1:
+                    st.write(f"**{product['name']}**")
+                with col2:
+                    st.write(f"₦{product['price']:.2f}")
+                with col3:
+                    st.write(f"₦{product['wholesale_price']:.2f}")
+                with col4:
+                    if st.button("Edit", key=f"edit_{product['id']}"):
+                        st.session_state.editing_product = product["id"]
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                with col5:
+                    if st.button("Delete", key=f"del_{product['id']}"):
+                        try:
+                            api_client.delete_product(product["id"])
+                            st.success("Deleted!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
 
     except requests.ConnectionError:
         st.error(
