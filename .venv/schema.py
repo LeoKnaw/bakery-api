@@ -67,6 +67,7 @@ class ProductionRecord(BaseModel):
 class SaleItemCreate(BaseModel):
     product_id: UUID
     quantity: int
+    sale_type: str = "retail"  # retail, wholesale, supply
 
 
 class SaleCreate(BaseModel):

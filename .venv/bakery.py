@@ -145,7 +145,12 @@ def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
         product = db.query(Product).filter(Product.id == item.product_id).first()
 
         qty = item.quantity
-        if qty > 5:
+        sale_type = item.sale_type or "retail"
+
+        # Supply sales have no price (not a sale, just tracking inventory)
+        if sale_type == "supply":
+            effective_price = 0
+        elif qty >= 5:
             effective_price = (product.price * qty) * 0.9
         else:
             effective_price = product.price
@@ -155,6 +160,7 @@ def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
             product_id=item.product_id,
             quantity=qty,
             price=effective_price,
+            sale_type=sale_type,
         )
         db.add(db_item)
 

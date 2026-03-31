@@ -42,6 +42,7 @@ class SaleItem(Base):
     product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     price = Column(Float, nullable=False)
+    sale_type = Column(String, default="retail")  # retail, wholesale, supply
 
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product")

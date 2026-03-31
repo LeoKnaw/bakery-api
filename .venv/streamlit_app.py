@@ -30,7 +30,7 @@ def show_products():
                 name = st.text_input("Product Name")
             with col2:
                 price = st.number_input(
-                    "Price ($)", min_value=0.01, step=0.01, format="%.2f"
+                    "Price (₦)", min_value=50, step=50, format="%.2f"
                 )
             with col3:
                 st.write("")
@@ -172,7 +172,7 @@ def show_new_sale():
             p["id"]: f"{p['name']} (₦{p['price']:.2f})" for p in products
         }
 
-        col1, col2, col3 = st.columns([4, 2, 1])
+        col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
         with col1:
             selected_product = st.selectbox(
                 "Select Product",
@@ -184,15 +184,27 @@ def show_new_sale():
         with col3:
             st.write("")
             st.write("")
+            is_supply = st.checkbox("Supply")
+        with col4:
+            st.write("")
+            st.write("")
             if st.button("Add to Cart"):
-                # Check if product already in cart
+                sale_type = "supply" if is_supply else "retail"
+                # Check if product already in cart with same sale_type
                 for item in st.session_state.cart:
-                    if item["product_id"] == selected_product:
+                    if (
+                        item["product_id"] == selected_product
+                        and item.get("sale_type") == sale_type
+                    ):
                         item["quantity"] += quantity
                         break
                 else:
                     st.session_state.cart.append(
-                        {"product_id": selected_product, "quantity": quantity}
+                        {
+                            "product_id": selected_product,
+                            "quantity": quantity,
+                            "sale_type": sale_type,
+                        }
                     )
                 st.rerun()
 
@@ -210,26 +222,36 @@ def show_new_sale():
                 )
                 if product:
                     qty = item["quantity"]
-                    if qty > 5:
+                    sale_type = item.get("sale_type", "retail")
+
+                    # Supply items have no price
+                    if sale_type == "supply":
+                        item_total = 0
+                    elif qty >= 5:
                         item_total = product["wholesale_price"] * qty
                     else:
                         item_total = product["price"] * qty
                     total += item_total
 
-                    col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
+                    col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1])
                     with col1:
                         st.write(product["name"])
                     with col2:
                         st.write(f"Qty: {item['quantity']}")
                     with col3:
-                        st.write(f"${item_total:.2f}")
+                        if sale_type == "supply":
+                            st.write("Supply")
+                        else:
+                            st.write("")
                     with col4:
+                        st.write(f"₦{item_total:.2f}")
+                    with col5:
                         if st.button("Remove", key=f"remove_{i}"):
                             st.session_state.cart.pop(i)
                             st.rerun()
 
             st.markdown("---")
-            st.markdown(f"### Total: ${total:.2f}")
+            st.markdown(f"### Total: ₦{total:.2f}")
 
             col1, col2 = st.columns([1, 1])
             with col1:

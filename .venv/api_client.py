@@ -66,7 +66,7 @@ def create_sale(items: list[dict]) -> dict:
     """
     Create a sale with multiple items.
 
-    items: list of {"product_id": str, "quantity": int}
+    items: list of {"product_id": str, "quantity": int, "sale_type": str}
     """
     try:
         response = requests.post(f"{BASE_URL}/sales", json={"items": items})
