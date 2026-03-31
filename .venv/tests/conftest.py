@@ -12,7 +12,7 @@ from bakery import app, get_db
 from models import Base
 
 # Use the same database as the main app (Supabase)
-from database import DATABASE_URL
+from database import DATABASE_URL, API_KEY
 
 engine = create_engine(
     DATABASE_URL,
@@ -54,3 +54,10 @@ def db_session():
         yield session
     finally:
         session.close()
+
+
+# API key headers for authenticated requests
+@pytest.fixture
+def auth_headers():
+    """Headers with API key for authenticated requests"""
+    return {"X-API-Key": API_KEY}
