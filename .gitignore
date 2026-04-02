@@ -1,6 +1,8 @@
 # Virtual environment
 .venv/
 !.venv/*.py
+!.venv/requirements.txt
+!.venv/Dockerfile.*
 .venv/test_the_db.py
 venv/
 env/

@@ -1,0 +1,26 @@
+services:
+  # FastAPI Backend
+  - type: web
+    name: bakery-api
+    runtime: docker
+    dockerfilePath: .venv/Dockerfile.api
+    rootDir: .venv
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: BASE_URL
+        value: https://bakery-api.onrender.com
+    healthCheckPath: /docs
+
+  # Streamlit Frontend
+  - type: web
+    name: bakery-streamlit
+    runtime: docker
+    dockerfilePath: .venv/Dockerfile.streamlit
+    rootDir: .venv
+    envVars:
+      - key: BASE_URL
+        value: https://bakery-api.onrender.com
+    healthCheckPath: /_stcore/health

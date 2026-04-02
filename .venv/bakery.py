@@ -11,33 +11,51 @@ from schema import (
     ProductionRecord,
     SaleCreate,
     SaleItemCreate,
+    UserRegister,
+    UserLogin,
+    UserResponse,
+    LoginResponse,
 )
-from models import Base, Product, Production, Sale, SaleItem
+from models import Base, Product, Production, Sale, SaleItem, User
 from database import Base, engine, SessionLocal, API_KEY
 from uuid import uuid4, UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime, date
+import bcrypt
+import secrets
 
 app = FastAPI()
 
 # CORS middleware - restrict access to your Streamlit app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_origins=[
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+        "https://*.onrender.com",
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
 
 Base.metadata.create_all(bind=engine)
 
 
-# API Key authentication dependency
-def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    """Verify API key for protected endpoints. GET requests are public."""
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid or missing API Key")
+# Password hashing using bcrypt directly
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+    )
+
+
+def create_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 def get_db():
@@ -46,6 +64,45 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# API Key authentication dependency (for API access)
+def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """Verify API key for protected endpoints. GET requests are public."""
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API Key")
+
+
+# User authentication dependency (for web users)
+def get_current_user(
+    x_token: Optional[str] = Header(None), db: Session = Depends(get_db)
+):
+    """Get current user from token header."""
+    if not x_token:
+        raise HTTPException(status_code=401, detail="Missing authentication token")
+
+    # Token format: user_id:token_string
+    try:
+        user_id_str, token = x_token.split(":")
+        user_id = UUID(user_id_str)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=401, detail="Invalid token format")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.password_hash != token:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not user.is_approved:
+        raise HTTPException(status_code=403, detail="Account pending approval")
+
+    return user
+
+
+def get_admin_user(user: User = Depends(get_current_user)):
+    """Dependency that requires admin privileges."""
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 
 
 @app.get("/fadel/products", response_model=List[ProductResponse])
@@ -297,3 +354,84 @@ def get_inventory(
         "closing_stock": 0 if closing_stock < 0 else closing_stock,
         "current_stock": 0 if current_stock < 0 else current_stock,
     }
+
+
+# ==================== AUTH ENDPOINTS ====================
+
+
+@app.post("/auth/register", response_model=UserResponse)
+async def register(user: UserRegister, db: Session = Depends(get_db)):
+    """Register a new user (pending approval)."""
+    # Check if username exists
+    existing = db.query(User).filter(User.username == user.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    # Check if this is the first user (auto-approve and make admin)
+    user_count = db.query(User).count()
+    is_first_user = user_count == 0
+
+    new_user = User(
+        username=user.username,
+        password_hash=hash_password(user.password),
+        is_approved=is_first_user,  # Auto-approve first user
+        is_admin=is_first_user,  # First user is admin
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+
+@app.post("/auth/login", response_model=LoginResponse)
+async def login(user: UserLogin, db: Session = Depends(get_db)):
+    """Login and get access token."""
+    db_user = db.query(User).filter(User.username == user.username).first()
+
+    if not db_user or not verify_password(user.password, db_user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if not db_user.is_approved:
+        raise HTTPException(
+            status_code=403, detail="Account pending approval. Contact admin."
+        )
+
+    # Return token as user_id:token_hash
+    token = f"{db_user.id}:{db_user.password_hash}"
+
+    return LoginResponse(
+        access_token=token,
+        is_admin=db_user.is_admin,
+        is_approved=db_user.is_approved,
+    )
+
+
+@app.get("/auth/pending", response_model=List[UserResponse])
+async def get_pending_users(
+    user: User = Depends(get_admin_user), db: Session = Depends(get_db)
+):
+    """Get all pending users (admin only)."""
+    return db.query(User).filter(User.is_approved == False).all()
+
+
+@app.post("/auth/approve/{user_id}", response_model=UserResponse)
+async def approve_user(
+    user_id: UUID, user: User = Depends(get_admin_user), db: Session = Depends(get_db)
+):
+    """Approve a pending user (admin only)."""
+    pending_user = db.query(User).filter(User.id == user_id).first()
+    if not pending_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    pending_user.is_approved = True
+    db.commit()
+    db.refresh(pending_user)
+    return pending_user
+
+
+@app.get("/auth/users", response_model=List[UserResponse])
+async def get_all_users(
+    user: User = Depends(get_admin_user), db: Session = Depends(get_db)
+):
+    """Get all users (admin only)."""
+    return db.query(User).all()

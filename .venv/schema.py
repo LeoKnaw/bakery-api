@@ -2,9 +2,17 @@ from pydantic import BaseModel, Field, computed_field
 from typing import Optional, List
 from uuid import UUID
 from database import Base
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
+
+# Nigerian Time (WAT - West Africa Time) = UTC+1
+NIGERIAN_TZ = timezone(timedelta(hours=1))
+
+
+def nigerian_now():
+    """Return current time in Nigerian timezone as naive datetime."""
+    return datetime.now(NIGERIAN_TZ).replace(tzinfo=None)
 
 
 # Product Schema
@@ -59,7 +67,7 @@ class ProductionRecord(BaseModel):
     id: UUID
     product: ProductInfo
     quantity: int = Field(gt=0)
-    timestamp: datetime = Field(default_factory=datetime.now)
+    timestamp: datetime = Field(default_factory=nigerian_now)
 
     class Config:
         from_attributes = True
@@ -75,3 +83,32 @@ class SaleCreate(BaseModel):
     items: List[SaleItemCreate] = Field(
         min_length=1, max_length=50
     )  # Max 50 items per sale
+
+
+# User Auth Schemas
+class UserRegister(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=6, max_length=100)
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    username: str
+    is_approved: bool
+    is_admin: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    is_admin: bool
+    is_approved: bool

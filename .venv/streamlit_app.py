@@ -10,12 +10,130 @@ from datetime import date
 
 st.set_page_config(page_title="Bakery Management", page_icon="🍞", layout="wide")
 
-# Sidebar navigation
+# Initialize auth state
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
+
+
+def show_login_page():
+    """Display login and registration page."""
+    st.title("🍞 Bakery Management")
+    st.markdown("---")
+
+    tab1, tab2 = st.tabs(["Login", "Register"])
+
+    with tab1:
+        st.subheader("Login")
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login")
+
+            if submitted:
+                try:
+                    result = api_client.login(username, password)
+                    st.session_state.authenticated = True
+                    st.session_state.is_admin = result["is_admin"]
+                    st.success("Login successful!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Login failed: {e}")
+
+    with tab2:
+        st.subheader("Register")
+        st.info("After registration, wait for admin approval.")
+        with st.form("register_form"):
+            new_username = st.text_input("Choose Username")
+            new_password = st.text_input("Choose Password", type="password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            submitted = st.form_submit_button("Register")
+
+            if submitted:
+                if new_password != confirm_password:
+                    st.error("Passwords don't match")
+                elif len(new_password) < 6:
+                    st.error("Password must be at least 6 characters")
+                else:
+                    try:
+                        api_client.register(new_username, new_password)
+                        st.success("Registration successful! Wait for admin approval.")
+                    except Exception as e:
+                        st.error(f"Registration failed: {e}")
+
+    st.stop()  # Stop here until authenticated
+
+
+def show_admin_panel():
+    """Display admin panel for user management."""
+    if not st.session_state.is_admin:
+        st.warning("Admin access required.")
+        return
+
+    st.header("👥 User Management")
+
+    # Pending users
+    st.subheader("Pending Approvals")
+    try:
+        pending = api_client.get_pending_users()
+        if pending:
+            for user in pending:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(
+                        f"**{user['username']}** - Registered: {user['created_at'][:10]}"
+                    )
+                with col2:
+                    if st.button("Approve", key=f"approve_{user['id']}"):
+                        api_client.approve_user(user["id"])
+                        st.success(f"Approved {user['username']}")
+                        st.rerun()
+        else:
+            st.info("No pending users")
+    except Exception as e:
+        st.error(f"Error loading users: {e}")
+
+    # All users
+    st.subheader("All Users")
+    try:
+        users = api_client.get_all_users()
+        for user in users:
+            status = (
+                "✓ Admin"
+                if user["is_admin"]
+                else ("✓ Approved" if user["is_approved"] else "⏳ Pending")
+            )
+            st.write(f"**{user['username']}** - {status}")
+    except Exception as e:
+        st.error(f"Error loading users: {e}")
+
+
+def logout():
+    """Handle logout."""
+    api_client.logout()
+    st.session_state.authenticated = False
+    st.session_state.is_admin = False
+    st.rerun()
+
+
+# Check authentication
+if not st.session_state.authenticated:
+    show_login_page()
+
+# Sidebar navigation with logout
 st.sidebar.title("🍞 Bakery")
+st.sidebar.markdown(f"**Logged in** {'(Admin)' if st.session_state.is_admin else ''}")
+if st.sidebar.button("Logout"):
+    logout()
 st.sidebar.markdown("---")
-page = st.sidebar.radio(
-    "Navigation", ["Products", "Record Production", "New Sale", "Inventory"]
-)
+
+# Build navigation options
+nav_options = ["Products", "Record Production", "New Sale", "Inventory"]
+if st.session_state.is_admin:
+    nav_options.append("👥 Admin")
+
+page = st.sidebar.radio("Navigation", nav_options)
 
 
 def show_products():
@@ -389,3 +507,5 @@ elif page == "New Sale":
     show_new_sale()
 elif page == "Inventory":
     show_inventory()
+elif page == "👥 Admin":
+    show_admin_panel()

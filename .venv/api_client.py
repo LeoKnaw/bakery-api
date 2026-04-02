@@ -17,6 +17,100 @@ API_KEY = os.getenv("API_KEY", "bakery-secret-key-2026")
 # Headers with API key for authenticated requests
 HEADERS = {"X-API-Key": API_KEY}
 
+# User token storage (for session management)
+_USER_TOKEN = None
+_USER_IS_ADMIN = False
+
+
+def set_user_token(token: str, is_admin: bool):
+    """Store user token after login."""
+    global _USER_TOKEN, _USER_IS_ADMIN
+    _USER_TOKEN = token
+    _USER_IS_ADMIN = is_admin
+
+
+def get_user_headers() -> dict:
+    """Get headers with user token for authenticated requests."""
+    if _USER_TOKEN:
+        return {"X-Token": _USER_TOKEN}
+    return {}
+
+
+def is_admin() -> bool:
+    """Check if current user is admin."""
+    return _USER_IS_ADMIN
+
+
+def is_logged_in() -> bool:
+    """Check if user is logged in."""
+    return _USER_TOKEN is not None
+
+
+def logout():
+    """Clear user session."""
+    global _USER_TOKEN, _USER_IS_ADMIN
+    _USER_TOKEN = None
+    _USER_IS_ADMIN = False
+
+
+# ==================== AUTH FUNCTIONS ====================
+
+
+def register(username: str, password: str) -> dict:
+    """Register a new user."""
+    response = requests.post(
+        f"{BASE_URL}/auth/register",
+        json={"username": username, "password": password},
+    )
+    if not response.ok:
+        error_detail = response.json().get("detail", "Registration failed")
+        raise ValueError(error_detail)
+    return response.json()
+
+
+def login(username: str, password: str) -> dict:
+    """Login and get access token."""
+    response = requests.post(
+        f"{BASE_URL}/auth/login",
+        json={"username": username, "password": password},
+    )
+    if not response.ok:
+        error_detail = response.json().get("detail", "Login failed")
+        raise ValueError(error_detail)
+    data = response.json()
+    set_user_token(data["access_token"], data["is_admin"])
+    return data
+
+
+def get_pending_users() -> list:
+    """Get pending users (admin only)."""
+    response = requests.get(
+        f"{BASE_URL}/auth/pending",
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def approve_user(user_id: str) -> dict:
+    """Approve a pending user (admin only)."""
+    response = requests.post(
+        f"{BASE_URL}/auth/approve/{user_id}",
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_all_users() -> list:
+    """Get all users (admin only)."""
+    response = requests.get(
+        f"{BASE_URL}/auth/users",
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()
+
 
 def get_products() -> list:
     """Fetch all products from the API."""

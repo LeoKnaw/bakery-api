@@ -457,3 +457,98 @@ class TestProductDeactivation:
         )
         assert response.status_code == 200
         assert response.json()["is_active"] is False
+
+
+class TestUserAuth:
+    """Tests for user authentication - uses unique users per test"""
+
+    def test_register_user(self, client):
+        """Test user registration returns correct data"""
+        # Use truly unique username
+        unique_name = f"{TEST_PREFIX}Reg_{uuid.uuid4().hex[:8]}"
+        response = client.post(
+            "/auth/register",
+            json={"username": unique_name, "password": "password123"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "id" in data
+        assert data["username"] == unique_name
+
+    def test_register_duplicate_username(self, client, auth_headers):
+        """Test registering duplicate username returns 400"""
+        unique_name = f"{TEST_PREFIX}Dup_{uuid.uuid4().hex[:8]}"
+        # Register first user
+        client.post(
+            "/auth/register",
+            json={"username": unique_name, "password": "password123"},
+        )
+        # Try to register again
+        response = client.post(
+            "/auth/register",
+            json={"username": unique_name, "password": "password123"},
+        )
+        assert response.status_code == 400
+
+    def test_login_success(self, client, admin_user_headers):
+        """Test successful login returns token"""
+        unique_name = f"{TEST_PREFIX}Login_{uuid.uuid4().hex[:8]}"
+
+        # Register user
+        reg_response = client.post(
+            "/auth/register",
+            json={"username": unique_name, "password": "password123"},
+        )
+        user_data = reg_response.json()
+
+        # If user is pending, approve them using admin token
+        if not user_data.get("is_approved", False):
+            # Get all users and find this one to approve
+            all_users = client.get("/auth/users", headers=admin_user_headers).json()
+            for u in all_users:
+                if u["username"] == unique_name:
+                    client.post(f"/auth/approve/{u['id']}", headers=admin_user_headers)
+                    break
+
+        # Now login should work
+        response = client.post(
+            "/auth/login",
+            json={"username": unique_name, "password": "password123"},
+        )
+        assert response.status_code == 200, f"Login failed: {response.text}"
+        data = response.json()
+        assert "access_token" in data
+
+    def test_login_wrong_password(self, client):
+        """Test login with wrong password returns 401"""
+        response = client.post(
+            "/auth/login",
+            json={
+                "username": f"{TEST_PREFIX}NonExistent",
+                "password": "wrongpass",
+            },
+        )
+        assert response.status_code == 401
+
+    def test_pending_user_cannot_login(self, client, admin_user_headers):
+        """Test pending user cannot login"""
+        unique_name = f"{TEST_PREFIX}Pending_{uuid.uuid4().hex[:8]}"
+
+        # Register user
+        client.post(
+            "/auth/register",
+            json={"username": unique_name, "password": "password123"},
+        )
+
+        # Find and ensure user is pending (not auto-approved as first)
+        pending = client.get("/auth/pending", headers=admin_user_headers).json()
+        if isinstance(pending, list):
+            user = next((u for u in pending if u["username"] == unique_name), None)
+            if user:
+                # Try to login as pending user
+                response = client.post(
+                    "/auth/login",
+                    json={"username": unique_name, "password": "password123"},
+                )
+                assert response.status_code == 403
+                assert "pending" in response.json()["detail"].lower()
