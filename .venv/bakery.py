@@ -105,6 +105,10 @@ def get_admin_user(user: User = Depends(get_current_user)):
     return user
 
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "name": "Fadel Bakery"}
+
 @app.get("/fadel/products", response_model=List[ProductResponse])
 async def get_products(db: Session = Depends(get_db)):
     return db.query(Product).filter(Product.is_active == True).all()

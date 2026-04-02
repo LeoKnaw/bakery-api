@@ -1,7 +1,7 @@
 services:
   # FastAPI Backend
   - type: web
-    name: bakery-api
+    name: fadel-api
     runtime: docker
     dockerfilePath: .venv/Dockerfile.api
     rootDir: .venv
@@ -11,16 +11,33 @@ services:
       - key: API_KEY
         sync: false
       - key: BASE_URL
-        value: https://bakery-api.onrender.com
+        value: https://fadel-api.onrender.com
     healthCheckPath: /docs
 
   # Streamlit Frontend
   - type: web
-    name: bakery-streamlit
+    name: fadel-bakery
     runtime: docker
     dockerfilePath: .venv/Dockerfile.streamlit
     rootDir: .venv
     envVars:
       - key: BASE_URL
-        value: https://bakery-api.onrender.com
+        value: https://fadel-api.onrender.com
     healthCheckPath: /_stcore/health
+
+  # Daily Report Cron Job (9pm Nigerian time = 8pm UTC)
+  - type: cron
+    name: fadel-daily-report
+    runtime: docker
+    dockerfilePath: .venv/Dockerfile.cron
+    rootDir: .venv
+    schedule: "0 20 * * *"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: EMAIL_ADDRESS
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: REPORT_RECIPIENT
+        sync: false

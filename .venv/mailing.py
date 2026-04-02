@@ -1,25 +1,68 @@
-from fastapi.params import Depends
 from sqlalchemy import func
-from datetime import date, timedelta
+from sqlalchemy.orm import Session
+from datetime import date
 from models import Product, Sale, SaleItem, Production
-from database import get_db
-from fastapi import FastAPI, HTTPException, Depends
+from database import SessionLocal
 import smtplib
 import os
-import api_client
-from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
-load_dotenv()
-
 
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 REPORT_RECIPIENT = os.getenv("REPORT_RECIPIENT")
 
 
-def get_daily_report(db, report_date: date = None):
+def get_inventory_data(db: Session, product_id, for_date: date):
+    """Calculate inventory data directly from database (no API call needed)."""
+    # Get the previous sales day (if any)
+    previous_sale = (
+        db.query(SaleItem, Sale)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+        .filter(SaleItem.product_id == product_id, Sale.timestamp < for_date)
+        .order_by(Sale.timestamp.desc())
+        .first()
+    )
+
+    if previous_sale:
+        prev_date = previous_sale.Sale.timestamp.date()
+        opening_stock = (
+            db.query(func.coalesce(func.sum(Production.quantity), 0))
+            .filter(
+                Production.product_id == product_id,
+                func.date(Production.timestamp) <= prev_date,
+            )
+            .scalar()
+            - db.query(func.coalesce(func.sum(SaleItem.quantity), 0))
+            .join(Sale, Sale.id == SaleItem.sale_id)
+            .filter(
+                SaleItem.product_id == product_id,
+                func.date(Sale.timestamp) <= prev_date,
+            )
+            .scalar()
+        )
+    else:
+        opening_stock = 0
+
+    # Production today
+    production_today = (
+        db.query(func.coalesce(func.sum(Production.quantity), 0))
+        .filter(
+            Production.product_id == product_id,
+            func.date(Production.timestamp) == for_date,
+        )
+        .scalar()
+    )
+
+    return {
+        "opening_stock": 0 if (opening_stock or 0) < 0 else (opening_stock or 0),
+        "production_stock": 0
+        if (production_today or 0) < 0
+        else (production_today or 0),
+    }
+
+
+def get_daily_report(db: Session, report_date: date = None):
     if not report_date:
         report_date = date.today()
 
@@ -28,10 +71,8 @@ def get_daily_report(db, report_date: date = None):
     products = db.query(Product).all()
 
     for product in products:
-        # Get opening stock and production from API
-        inventory = api_client.get_inventory(
-            str(product.id), for_date=report_date.isoformat()
-        )
+        # Get opening stock and production from database directly
+        inventory = get_inventory_data(db, product.id, report_date)
         opening_stock = inventory["opening_stock"]
         production_today = inventory["production_stock"]
 
@@ -165,10 +206,21 @@ def send_daily_email(report_html, to_email=REPORT_RECIPIENT):
 
 
 if __name__ == "__main__":
-    db = next(get_db())
-    report = get_daily_report(db, report_date=date.today())
-    db.close()
+    print(f"Generating daily report for {date.today()}...")
 
-    html = format_report_html(report, report_date=date.today())
-    print(html)  # Preview before sending
-    send_daily_email(html)
+    # Create database session directly (no FastAPI dependency)
+    db = SessionLocal()
+    try:
+        report = get_daily_report(db, report_date=date.today())
+
+        html = format_report_html(report, report_date=date.today())
+        print("Report generated. Sending email...")
+
+        send_daily_email(html)
+
+        print(f"Email sent successfully to {REPORT_RECIPIENT}")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
+    finally:
+        db.close()
