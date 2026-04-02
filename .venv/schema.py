@@ -1,10 +1,7 @@
 from pydantic import BaseModel, Field, computed_field
 from typing import Optional, List
 from uuid import UUID
-from database import Base
 from datetime import datetime, timezone, timedelta
-import os
-from dotenv import load_dotenv
 
 # Nigerian Time (WAT - West Africa Time) = UTC+1
 NIGERIAN_TZ = timezone(timedelta(hours=1))
