@@ -55,13 +55,20 @@ def update_product(
     return response.json()
 
 
-def delete_product(product_id: str) -> None:
-    """Delete a product."""
-    response = requests.delete(
-        f"{BASE_URL}/fadel/delete/{product_id}",
+def deactivate_product(product_id: str) -> dict:
+    """Deactivate a product (soft delete)."""
+    response = requests.patch(
+        f"{BASE_URL}/fadel/products/{product_id}/deactivate",
         headers=HEADERS,
     )
     response.raise_for_status()
+    return response.json()
+
+
+# Keep old function for backwards compatibility
+def delete_product(product_id: str) -> dict:
+    """Deactivate a product (soft delete)."""
+    return deactivate_product(product_id)
 
 
 def record_production(product_id: str, quantity: int) -> dict:

@@ -50,7 +50,7 @@ def get_db():
 
 @app.get("/fadel/products", response_model=List[ProductResponse])
 async def get_products(db: Session = Depends(get_db)):
-    return db.query(Product).all()
+    return db.query(Product).filter(Product.is_active == True).all()
 
 
 @app.post(
@@ -87,17 +87,19 @@ async def update_product(
     return product
 
 
-@app.delete("/fadel/delete/{product_id}", dependencies=[Depends(verify_api_key)])
-async def delete_product(product_id: UUID, db: Session = Depends(get_db)):
+@app.patch(
+    "/fadel/products/{product_id}/deactivate", dependencies=[Depends(verify_api_key)]
+)
+async def deactivate_product(product_id: UUID, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
 
     if not product:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
 
-    db.delete(product)
+    product.is_active = False
     db.commit()
-
-    return None
+    db.refresh(product)
+    return product
 
 
 # Production and inventory endpoints

@@ -20,6 +20,7 @@ class ProductCreate(Product):
 
 class ProductResponse(Product):
     id: UUID
+    is_active: bool = True
 
     @computed_field
     @property

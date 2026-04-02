@@ -106,10 +106,10 @@ def show_products():
                         st.session_state.editing_product = product["id"]
                         st.rerun()
                 with col5:
-                    if st.button("Delete", key=f"del_{product['id']}"):
+                    if st.button("Deactivate", key=f"del_{product['id']}"):
                         try:
-                            api_client.delete_product(product["id"])
-                            st.success("Deleted!")
+                            api_client.deactivate_product(product["id"])
+                            st.success("Deactivated!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
