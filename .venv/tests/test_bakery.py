@@ -357,3 +357,103 @@ class TestInputValidation:
             headers=auth_headers,
         )
         assert response.status_code == 422
+
+
+class TestProductDeactivation:
+    """Tests for product soft delete / deactivation"""
+
+    def test_deactivate_product(self, client, auth_headers):
+        """Test deactivating a product returns is_active=False"""
+        # Create a product
+        create_resp = client.post(
+            "/fadel/products",
+            json={"name": f"{TEST_PREFIX}ToDeactivate", "price": 500.0},
+            headers=auth_headers,
+        )
+        product_id = create_resp.json()["id"]
+
+        # Deactivate it
+        response = client.patch(
+            f"/fadel/products/{product_id}/deactivate",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_active"] is False
+
+    def test_deactivate_nonexistent_product(self, client, auth_headers):
+        """Test deactivating non-existent product returns 404"""
+        fake_id = str(uuid.uuid4())
+        response = client.patch(
+            f"/fadel/products/{fake_id}/deactivate",
+            headers=auth_headers,
+        )
+        assert response.status_code == 404
+
+    def test_deactivate_without_api_key(self, client):
+        """Test deactivating without API key returns 401"""
+        fake_id = str(uuid.uuid4())
+        response = client.patch(f"/fadel/products/{fake_id}/deactivate")
+        assert response.status_code == 401
+
+    def test_deactivated_product_not_in_list(self, client, auth_headers):
+        """Test deactivated products don't appear in GET /products"""
+        # Create a product
+        create_resp = client.post(
+            "/fadel/products",
+            json={"name": f"{TEST_PREFIX}WillDisappear", "price": 300.0},
+            headers=auth_headers,
+        )
+        product_id = create_resp.json()["id"]
+
+        # Verify it appears in GET
+        response = client.get("/fadel/products")
+        product_ids = [p["id"] for p in response.json()]
+        assert product_id in product_ids
+
+        # Deactivate it
+        client.patch(
+            f"/fadel/products/{product_id}/deactivate",
+            headers=auth_headers,
+        )
+
+        # Verify it no longer appears in GET
+        response = client.get("/fadel/products")
+        product_ids = [p["id"] for p in response.json()]
+        assert product_id not in product_ids
+
+    def test_deactivate_product_with_history(self, client, auth_headers):
+        """Test product with sales/production can be deactivated"""
+        # Create product and production
+        create_resp = client.post(
+            "/fadel/products",
+            json={"name": f"{TEST_PREFIX}WithHistory", "price": 800.0},
+            headers=auth_headers,
+        )
+        product_id = create_resp.json()["id"]
+
+        # Add production
+        client.post(
+            "/fadel/production",
+            json={"product_id": product_id, "quantity": 20},
+            headers=auth_headers,
+        )
+
+        # Add a sale
+        client.post(
+            "/sales",
+            json={
+                "items": [
+                    {"product_id": product_id, "quantity": 3, "sale_type": "retail"}
+                ]
+            },
+            headers=auth_headers,
+        )
+
+        # Deactivate - should succeed with no FK errors
+        response = client.patch(
+            f"/fadel/products/{product_id}/deactivate",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["is_active"] is False
