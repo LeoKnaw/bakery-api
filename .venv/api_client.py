@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(current_dir, ".env")
 load_dotenv(dotenv_path=dotenv_path)
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 API_KEY = os.getenv("API_KEY", "bakery-secret-key-2026")
 
 # Headers with API key for authenticated requests
