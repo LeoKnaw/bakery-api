@@ -1,9 +1,4 @@
 # Virtual environment
-.venv/
-!.venv/*.py
-!.venv/requirements.txt
-!.venv/Dockerfile.*
-.venv/test_the_db.py
 venv/
 env/
 
@@ -30,3 +25,19 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# .venv directory - ignore most but allow specific files
+.venv/test_the_db.py
+.venv/lib/
+.venv/Scripts/
+.venv/bin/
+.venv/include/
+.venv/share/
+.venv/etc/
+.venv/pyvenv.cfg
+.venv/.lock
+.venv/.env
+.venv/CACHEDIR.TAG
+.venv/__pycache__/
+.venv/.pytest_cache/
+.venv/.ruff_cache/
