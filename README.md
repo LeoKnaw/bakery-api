@@ -1,109 +1,181 @@
-# Bakery API
+# Fadel Bakery API
 
-A FastAPI-based REST API for managing bakery products, production tracking, and inventory.
+A full-stack bakery management system for tracking products, production, sales, and inventory. Includes automatic daily email reports.
+
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| **API** | https://fadel-api.onrender.com |
+| **Frontend** | https://fadel-bakery.onrender.com |
+| **API Docs** | https://fadel-api.onrender.com/docs |
 
 ## Tech Stack
 
-- **Framework:** FastAPI
-- **Data Validation:** Pydantic
-- **Storage:** In-memory (list-based)
-- **Python:** 3.13+
+| Component | Technology |
+|-----------|------------|
+| **Backend** | FastAPI, SQLAlchemy, Pydantic |
+| **Database** | PostgreSQL (Supabase) |
+| **Frontend** | Streamlit |
+| **Deployment** | Render |
+| **Email** | Gmail SMTP |
+| **Auth** | API Key + JWT tokens |
 
-## Data Models
+## Features
 
-### Product
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Unique identifier |
-| name | string | Product name |
-| price | float | Product price (must be > 0) |
+### Authentication
+- User registration with admin approval
+- First user auto-approved as admin
+- API key authentication for operations
+- User token authentication for admin panel
 
-### ProductionRecord
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Unique identifier |
-| product_id | UUID | Reference to product |
-| quantity | int | Units produced (must be > 0) |
-| timestamp | datetime | When production occurred |
+### Products (Admin Only)
+- Create, update, deactivate products
+- Soft delete (deactivation) preserves history
+- Auto-calculated wholesale price (10% discount)
 
-### InventoryItem
-| Field | Type | Description |
-|-------|------|-------------|
-| product_id | UUID | Reference to product |
-| quantity | int | Current stock (minimum 0) |
+### Production
+- Record baking/production batches
+- Automatic inventory updates
+- Production history tracking
+
+### Sales
+- **Retail:** Qty < 5, full price
+- **Wholesale:** Qty ≥ 5, 10% discount
+- **Supply:** Inventory tracking only, no revenue
+- Automatic sale type classification
+- Stock validation with detailed error messages
+
+### Inventory
+- Real-time stock tracking
+- Opening stock, production, sales, closing stock
+- Date-based inventory reports
+
+### Daily Email Reports
+- Automatic reports sent at 9pm Nigerian time (WAT)
+- Wholesale/retail/supply breakdown
+- Revenue calculations
+- Stock levels per product
+
+### Timezone
+- All timestamps in Nigerian time (WAT, UTC+1)
+- Database and frontend show same local time
 
 ## API Endpoints
 
-### Products
+### Authentication
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/auth/register` | Register new user | Public |
+| POST | `/auth/login` | Login, get token | Public |
+| GET | `/auth/pending` | List pending users | Admin |
+| POST | `/auth/approve/{user_id}` | Approve user | Admin |
+| GET | `/auth/users` | List all users | Admin |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1` | List all products |
-| POST | `/fadel/products` | Create a new product |
-| PUT | `/fadel/products/{product_id}` | Update a product |
-| DELETE | `/fadel/delete/{product_id}` | Delete a product |
+### Products
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/fadel/products` | List active products | Public |
+| POST | `/fadel/products` | Create product | API Key |
+| PUT | `/fadel/products/{id}` | Update product | API Key |
+| PATCH | `/fadel/products/{id}/deactivate` | Deactivate product | API Key |
 
 ### Production
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/fadel/production` | List production records | Public |
+| POST | `/fadel/production` | Record production | API Key |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/fadel/production` | Record production batch |
-| GET | `/fadel/production` | List all production records |
+### Sales
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/sales` | Create sale | API Key |
 
 ### Inventory
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/inventory/{product_id}` | Get inventory for product | Public |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/fadel/inventory` | List all inventory items |
-| GET | `/fadel/inventory/{product_id}` | Get inventory for specific product |
-| PATCH | `/fadel/inventory/{product_id}` | Manually adjust inventory |
+## Running Locally
 
-## Business Logic
+### Prerequisites
+- Python 3.13+
+- Supabase database
 
-### Production Flow
-1. When production is recorded via `POST /fadel/production`, the system:
-   - Validates the product exists
-   - Creates a production record with timestamp
-   - Automatically increments inventory for that product
-   - Creates inventory entry if none exists
+### Setup
 
-### Inventory Rules
-- Quantity cannot go below 0
-- Manual adjustments via PATCH are validated against negative results
-- Inventory automatically reflects production records
-
-## Usage Examples
-
-### Create a Product
+1. Clone the repository:
 ```bash
-curl -X POST "http://localhost:8000/fadel/products" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Croissant", "price": 3.50}'
+git clone https://github.com/LeoKnaw/bakery-api.git
+cd bakery-api
 ```
 
-### Record Production
+2. Install dependencies:
 ```bash
-curl -X POST "http://localhost:8000/fadel/production" \
-  -H "Content-Type: application/json" \
-  -d '{"product_id": "<uuid>", "quantity": 50}'
+pip install -r .venv/requirements.txt
 ```
 
-### Check Inventory
-```bash
-curl "http://localhost:8000/fadel/inventory"
+3. Create `.venv/.env` file:
+```env
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@YOUR_HOST:5432/postgres?sslmode=require
+API_KEY=your-secret-api-key
+EMAIL_ADDRESS=your@gmail.com
+EMAIL_PASSWORD=your-app-password
+REPORT_RECIPIENT=recipient@email.com
 ```
 
-### Adjust Inventory
+4. Start the API:
 ```bash
-curl -X PATCH "http://localhost:8000/fadel/inventory/<product_id>" \
-  -H "Content-Type: application/json" \
-  -d -5  # Adjust by +5 or -5 (result must be >= 0)
-```
-
-## Running the API
-
-```bash
+cd .venv
 uvicorn bakery:app --reload
 ```
 
-API docs available at `http://localhost:8000/docs`
+5. Start the frontend (separate terminal):
+```bash
+cd .venv
+streamlit run streamlit_app.py
+```
+
+## Deployment
+
+Deployed on Render using Docker. See `render.yaml` for service configuration.
+
+### Services
+- `fadel-api` - FastAPI backend
+- `fadel-bakery` - Streamlit frontend
+- `fadel-daily-report` - Cron job (runs daily at 9pm WAT)
+
+### Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Supabase connection string |
+| `API_KEY` | API authentication key |
+| `EMAIL_ADDRESS` | Gmail address for reports |
+| `EMAIL_PASSWORD` | Gmail app password |
+| `REPORT_RECIPIENT` | Email to receive reports |
+| `BASE_URL` | API URL (for Streamlit) |
+
+## Project Structure
+
+```
+.venv/
+├── bakery.py          # FastAPI application
+├── models.py          # SQLAlchemy models
+├── schema.py          # Pydantic schemas
+├── database.py        # Database connection
+├── mailing.py         # Email report logic
+├── api_client.py      # API client for Streamlit
+├── streamlit_app.py   # Streamlit frontend
+├── requirements.txt   # Python dependencies
+├── Dockerfile.api     # API Docker config
+├── Dockerfile.streamlit # Frontend Docker config
+├── Dockerfile.cron    # Cron job Docker config
+└── tests/
+    ├── conftest.py    # Test fixtures
+    └── test_bakery.py # API tests (29 tests)
+```
+
+## License
+
+MIT
