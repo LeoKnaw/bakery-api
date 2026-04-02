@@ -7,15 +7,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(current_dir, ".env")
 load_dotenv(dotenv_path=dotenv_path)
 
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DATABASE_URL = os.getenv("DATABASE_URL")
 API_KEY = os.getenv("API_KEY", "default-change-me")
 
-if not DATABASE_PASSWORD:
-    raise ValueError(
-        "DATABASE_PASSWORD not found in environment variables. Check your .env file."
-    )
-
-DATABASE_URL = f"postgresql://postgres:{DATABASE_PASSWORD}@db.ikrhsnplcrewjvapwmkr.supabase.co:6543/postgres"
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL not found in environment variables.")
 
 engine = create_engine(
     DATABASE_URL,
