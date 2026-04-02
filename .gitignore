@@ -28,6 +28,8 @@ build/
 
 # .venv directory - ignore most but allow specific files
 .venv/test_the_db.py
+.venv/fadel_start_stop_service.py
+.venv/.gitignore
 .venv/lib/
 .venv/Scripts/
 .venv/bin/
@@ -39,5 +41,8 @@ build/
 .venv/.env
 .venv/CACHEDIR.TAG
 .venv/__pycache__/
+.venv/**/__pycache__/
 .venv/.pytest_cache/
+.venv/**/.pytest_cache/
 .venv/.ruff_cache/
+.venv/**/.ruff_cache/
