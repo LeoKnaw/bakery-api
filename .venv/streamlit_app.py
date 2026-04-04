@@ -7,14 +7,53 @@ import streamlit as st
 import requests
 import api_client
 from datetime import date
+import os
+import time
+from streamlit_cookies_manager import EncryptedCookieManager
 
 st.set_page_config(page_title="Bakery Management", page_icon="🍞", layout="wide")
+
+# Initialize encrypted cookie manager
+cookies = EncryptedCookieManager(
+    prefix="bakery/",
+    password=os.environ.get("COOKIES_PASSWORD", "bakery-secret-2026"),
+)
+if not cookies.ready():
+    st.spinner("Loading...")
+    st.stop()
+
+COOKIE_EXPIRY_SECONDS = 3600  # 1 hour
 
 # Initialize auth state
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
+
+# Restore auth from cookie with expiration check
+if not st.session_state.authenticated:
+    auth_token = cookies.get("auth_token")
+    auth_time = cookies.get("auth_time")
+
+    if auth_token and auth_time:
+        try:
+            elapsed = time.time() - float(auth_time)
+            if elapsed < COOKIE_EXPIRY_SECONDS:
+                st.session_state.authenticated = True
+                st.session_state.is_admin = (
+                    cookies.get("is_admin", "false").lower() == "true"
+                )
+                api_client.set_user_token(auth_token, st.session_state.is_admin)
+            else:
+                for key in ["auth_token", "auth_time", "is_admin"]:
+                    if key in cookies:
+                        del cookies[key]
+                cookies.save()
+        except (ValueError, TypeError):
+            for key in ["auth_token", "auth_time", "is_admin"]:
+                if key in cookies:
+                    del cookies[key]
+            cookies.save()
 
 
 def show_login_page():
@@ -36,6 +75,10 @@ def show_login_page():
                     result = api_client.login(username, password)
                     st.session_state.authenticated = True
                     st.session_state.is_admin = result["is_admin"]
+                    cookies["auth_token"] = result["access_token"]
+                    cookies["is_admin"] = str(result["is_admin"])
+                    cookies["auth_time"] = str(time.time())
+                    cookies.save()
                     st.success("Login successful!")
                     st.rerun()
                 except Exception as e:
@@ -112,6 +155,10 @@ def show_admin_panel():
 def logout():
     """Handle logout."""
     api_client.logout()
+    for key in ["auth_token", "auth_time", "is_admin"]:
+        if key in cookies:
+            del cookies[key]
+    cookies.save()
     st.session_state.authenticated = False
     st.session_state.is_admin = False
     st.rerun()
@@ -146,7 +193,7 @@ def show_products():
 
     # Add new product form
     with st.expander("Add New Product", expanded=False):
-        with st.form("add_product"):
+        with st.form("add_product", clear_on_submit=True):
             col1, col2, col3 = st.columns([3, 2, 1])
             with col1:
                 name = st.text_input("Product Name")
