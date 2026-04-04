@@ -1,8 +1,6 @@
 """API tests for Bakery Management System"""
 
 import uuid
-import pytest
-
 
 # Use a unique prefix for test data to avoid conflicts
 TEST_PREFIX = "TEST_API_"
@@ -251,8 +249,14 @@ class TestInventory:
             headers=auth_headers,
         )
 
-        # Get inventory (public endpoint)
-        response = client.get(f"/inventory/{product_id}")
+        # Get production record to extract the correct date (handles timezone differences)
+        records = client.get("/fadel/production").json()
+        prod_date = records[0]["timestamp"][:10]
+
+        # Get inventory with explicit date matching production
+        response = client.get(
+            f"/inventory/{product_id}", params={"for_date": prod_date}
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["product_name"] == f"{TEST_PREFIX}Inventory Test"
