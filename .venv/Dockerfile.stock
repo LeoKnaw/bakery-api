@@ -1,0 +1,20 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY stock_frontend.py .
+COPY api_client.py .
+
+COPY .env* ./
+
+EXPOSE 8502
+
+CMD ["streamlit", "run", "stock_frontend.py", \
+     "--server.port=8502", \
+     "--server.address=0.0.0.0", \
+     "--server.enableCORS=false", \
+     "--server.enableXsrfProtection=false", \
+     "--browser.gatherUsageStats=false"]
