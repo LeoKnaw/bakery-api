@@ -218,3 +218,98 @@ def get_inventory(product_id: str, for_date: Optional[str] = None) -> dict:
     response = requests.get(f"{BASE_URL}/inventory/{product_id}", params=params)
     response.raise_for_status()
     return response.json()
+
+
+# ==================== DAILY STOCK RECORD FUNCTIONS ====================
+
+
+def create_daily_stock_records(record_date: str) -> list:
+    """Create daily stock records for all active products."""
+    response = requests.post(
+        f"{BASE_URL}/stock/daily?record_date={record_date}",
+        headers=get_user_headers(),
+    )
+    if not response.ok:
+        error_detail = response.json().get("detail", "Failed to create daily records")
+        raise ValueError(error_detail)
+    return response.json()
+
+
+def get_daily_stock_records(
+    record_date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    product_id: Optional[str] = None,
+) -> list:
+    """Get daily stock records with optional filters."""
+    params = {}
+    if record_date:
+        params["record_date"] = record_date
+    if start_date:
+        params["start_date"] = start_date
+    if end_date:
+        params["end_date"] = end_date
+    if product_id:
+        params["product_id"] = product_id
+
+    response = requests.get(
+        f"{BASE_URL}/stock/daily",
+        params=params,
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_daily_stock_record(record_id: str) -> dict:
+    """Get a single daily stock record by ID."""
+    response = requests.get(
+        f"{BASE_URL}/stock/daily/{record_id}",
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def update_daily_stock_record(
+    record_id: str,
+    opening_stock: Optional[int] = None,
+    production_stock: Optional[int] = None,
+    wholesale_quantity: Optional[int] = None,
+    retail_quantity: Optional[int] = None,
+    wholesale_revenue: Optional[float] = None,
+    retail_revenue: Optional[float] = None,
+) -> dict:
+    """Update a daily stock record. Closing stock auto-calculates."""
+    payload = {}
+    if opening_stock is not None:
+        payload["opening_stock"] = opening_stock
+    if production_stock is not None:
+        payload["production_stock"] = production_stock
+    if wholesale_quantity is not None:
+        payload["wholesale_quantity"] = wholesale_quantity
+    if retail_quantity is not None:
+        payload["retail_quantity"] = retail_quantity
+    if wholesale_revenue is not None:
+        payload["wholesale_revenue"] = wholesale_revenue
+    if retail_revenue is not None:
+        payload["retail_revenue"] = retail_revenue
+
+    response = requests.put(
+        f"{BASE_URL}/stock/daily/{record_id}",
+        json=payload,
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_stock_summary(start_date: str, end_date: str) -> dict:
+    """Get stock summary for a date range."""
+    response = requests.get(
+        f"{BASE_URL}/stock/summary",
+        params={"start_date": start_date, "end_date": end_date},
+        headers=get_user_headers(),
+    )
+    response.raise_for_status()
+    return response.json()

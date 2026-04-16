@@ -4,12 +4,13 @@ Mirrors the production models but uses Uuid instead of PostgreSQL UUID.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Date,
     Float,
     ForeignKey,
     Integer,
@@ -83,3 +84,22 @@ class User(Base):
     is_approved = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=nigerian_now)
+
+
+class DailyStockRecord(Base):
+    __tablename__ = "daily_stock_records"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    record_date = Column(Date, nullable=False, index=True)
+    product_id = Column(Uuid, ForeignKey("products.id"), nullable=False)
+    opening_stock = Column(Integer, default=0)
+    production_stock = Column(Integer, default=0)
+    wholesale_quantity = Column(Integer, default=0)
+    retail_quantity = Column(Integer, default=0)
+    wholesale_revenue = Column(Float, default=0.0)
+    retail_revenue = Column(Float, default=0.0)
+    closing_stock = Column(Integer, default=0)
+    created_at = Column(DateTime, default=nigerian_now)
+    updated_at = Column(DateTime, default=nigerian_now)
+
+    product = orm.relationship("Product")

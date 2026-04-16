@@ -176,7 +176,7 @@ if st.sidebar.button("Logout"):
 st.sidebar.markdown("---")
 
 # Build navigation options
-nav_options = ["Products", "Record Production", "New Sale", "Inventory"]
+nav_options = ["Products", "Record Production", "New Sale", "Inventory", "Daily Stock"]
 if st.session_state.is_admin:
     nav_options.append("👥 Admin")
 
@@ -554,5 +554,179 @@ elif page == "New Sale":
     show_new_sale()
 elif page == "Inventory":
     show_inventory()
+elif page == "Daily Stock":
+    show_daily_stock()
 elif page == "👥 Admin":
     show_admin_panel()
+
+
+def show_daily_stock():
+    """Daily Stock Records page - manage daily stock tracking."""
+    st.header("📊 Daily Stock Records")
+
+    tab1, tab2, tab3 = st.tabs(["Create Records", "View Records", "Summary"])
+
+    with tab1:
+        st.subheader("Create Daily Stock Records")
+        record_date = st.date_input("Select Date", value=date.today())
+
+        if st.button("Create Records for All Products"):
+            try:
+                records = api_client.create_daily_stock_records(record_date.isoformat())
+                st.success(f"Created {len(records)} stock records for {record_date}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab2:
+        st.subheader("View & Edit Records")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            view_date = st.date_input("View Date", value=date.today())
+        with col2:
+            filter_product = st.selectbox(
+                "Filter by Product",
+                options=["All"] + [p["name"] for p in api_client.get_products()],
+                index=0,
+            )
+
+        if st.button("Load Records"):
+            try:
+                records = api_client.get_daily_stock_records(
+                    record_date=view_date.isoformat()
+                )
+
+                if filter_product != "All":
+                    products = {p["id"]: p["name"] for p in api_client.get_products()}
+                    records = [
+                        r
+                        for r in records
+                        if products.get(r["product_id"]) == filter_product
+                    ]
+
+                if not records:
+                    st.info("No records found for this date")
+                else:
+                    for record in records:
+                        product = api_client.get_products()
+                        product_name = next(
+                            (
+                                p["name"]
+                                for p in product
+                                if p["id"] == record["product_id"]
+                            ),
+                            "Unknown",
+                        )
+
+                        with st.expander(f"{product_name} - {record['record_date']}"):
+                            with st.form(f"update_stock_{record['id']}"):
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    opening = st.number_input(
+                                        "Opening Stock",
+                                        min_value=0,
+                                        value=record["opening_stock"],
+                                    )
+                                    production = st.number_input(
+                                        "Production Stock",
+                                        min_value=0,
+                                        value=record["production_stock"],
+                                    )
+                                with col2:
+                                    wholesale = st.number_input(
+                                        "Wholesale Qty",
+                                        min_value=0,
+                                        value=record["wholesale_quantity"],
+                                    )
+                                    retail = st.number_input(
+                                        "Retail Qty",
+                                        min_value=0,
+                                        value=record["retail_quantity"],
+                                    )
+
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    ws_revenue = st.number_input(
+                                        "Wholesale Revenue (₦)",
+                                        min_value=0.0,
+                                        value=float(record["wholesale_revenue"]),
+                                    )
+                                with col2:
+                                    rt_revenue = st.number_input(
+                                        "Retail Revenue (₦)",
+                                        min_value=0.0,
+                                        value=float(record["retail_revenue"]),
+                                    )
+
+                                if st.form_submit_button(
+                                    "Update Record", type="primary"
+                                ):
+                                    try:
+                                        api_client.update_daily_stock_record(
+                                            record["id"],
+                                            opening_stock=opening,
+                                            production_stock=production,
+                                            wholesale_quantity=wholesale,
+                                            retail_quantity=retail,
+                                            wholesale_revenue=ws_revenue,
+                                            retail_revenue=rt_revenue,
+                                        )
+                                        st.success("Record updated!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error: {e}")
+
+                                st.metric("Closing Stock", record["closing_stock"])
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with tab3:
+        st.subheader("Stock Summary")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input("Start Date", value=date.today())
+        with col2:
+            end_date = st.date_input("End Date", value=date.today())
+
+        if st.button("Get Summary"):
+            try:
+                summary = api_client.get_stock_summary(
+                    start_date.isoformat(), end_date.isoformat()
+                )
+
+                st.markdown("### Overall Totals")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Production", summary["totals"]["production_stock"])
+                with col2:
+                    st.metric(
+                        "Total Wholesale", summary["totals"]["wholesale_quantity"]
+                    )
+                with col3:
+                    st.metric("Total Retail", summary["totals"]["retail_quantity"])
+                with col4:
+                    st.metric(
+                        "Total Revenue", f"₦{summary['totals']['total_revenue']:,.2f}"
+                    )
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Opening Stock", summary["totals"]["opening_stock"])
+                with col2:
+                    st.metric("Closing Stock", summary["totals"]["closing_stock"])
+                with col3:
+                    st.metric("Total Records", summary["total_records"])
+
+                if summary.get("by_product"):
+                    st.markdown("### By Product")
+                    for prod in summary["by_product"]:
+                        st.write(
+                            f"**{prod['product_name']}**: Produced {prod['total_production']}, "
+                            f"Wholesale {prod['total_wholesale']}, Retail {prod['total_retail']}, "
+                            f"Revenue ₦{prod['total_revenue']:,.2f}"
+                        )
+
+            except Exception as e:
+                st.error(f"Error: {e}")

@@ -1,7 +1,16 @@
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, String, Float, ForeignKey, Integer, DateTime, Boolean
+from sqlalchemy import (
+    Column,
+    String,
+    Float,
+    ForeignKey,
+    Integer,
+    DateTime,
+    Boolean,
+    Date,
+)
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from database import Base
 import uuid
 
@@ -66,3 +75,22 @@ class User(Base):
     is_approved = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=nigerian_now)
+
+
+class DailyStockRecord(Base):
+    __tablename__ = "daily_stock_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    record_date = Column(Date, nullable=False, index=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    opening_stock = Column(Integer, default=0)
+    production_stock = Column(Integer, default=0)
+    wholesale_quantity = Column(Integer, default=0)
+    retail_quantity = Column(Integer, default=0)
+    wholesale_revenue = Column(Float, default=0.0)
+    retail_revenue = Column(Float, default=0.0)
+    closing_stock = Column(Integer, default=0)
+    created_at = Column(DateTime, default=nigerian_now)
+    updated_at = Column(DateTime, default=nigerian_now, onupdate=nigerian_now)
+
+    product = relationship("Product")

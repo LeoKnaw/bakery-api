@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, computed_field
 from typing import Optional, List
 from uuid import UUID
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 
 # Nigerian Time (WAT - West Africa Time) = UTC+1
 NIGERIAN_TZ = timezone(timedelta(hours=1))
@@ -109,3 +109,44 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     is_admin: bool
     is_approved: bool
+
+
+# Daily Stock Record Schemas
+
+
+class DailyStockRecordBase(BaseModel):
+    record_date: date
+    product_id: UUID
+    opening_stock: int = Field(default=0, ge=0)
+    production_stock: int = Field(default=0, ge=0)
+    wholesale_quantity: int = Field(default=0, ge=0)
+    retail_quantity: int = Field(default=0, ge=0)
+    wholesale_revenue: float = Field(default=0.0, ge=0)
+    retail_revenue: float = Field(default=0.0, ge=0)
+
+
+class DailyStockRecordCreate(DailyStockRecordBase):
+    pass
+
+
+class DailyStockRecordUpdate(BaseModel):
+    opening_stock: Optional[int] = Field(default=None, ge=0)
+    production_stock: Optional[int] = Field(default=None, ge=0)
+    wholesale_quantity: Optional[int] = Field(default=None, ge=0)
+    retail_quantity: Optional[int] = Field(default=None, ge=0)
+    wholesale_revenue: Optional[float] = Field(default=None, ge=0)
+    retail_revenue: Optional[float] = Field(default=None, ge=0)
+
+
+class DailyStockRecordResponse(DailyStockRecordBase):
+    id: UUID
+    closing_stock: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DailyStockRecordWithProduct(DailyStockRecordResponse):
+    product: ProductInfo
