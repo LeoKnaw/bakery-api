@@ -17,6 +17,7 @@ class Product(BaseModel):
     __tablename__ = "products"
     name: str = Field(min_length=1, max_length=100)
     price: float = Field(gt=0, le=1000000)  # Max 1 million
+    wholesale_price: float = Field(gt=0, le=1000000)
 
 
 class ProductCreate(Product):
@@ -27,11 +28,6 @@ class ProductResponse(Product):
     id: UUID
     is_active: bool = True
 
-    @computed_field
-    @property
-    def wholesale_price(self) -> float:
-        return self.price * 0.9
-
     class Config:
         from_attributes = True
 
@@ -39,6 +35,7 @@ class ProductResponse(Product):
 class ProductUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     price: Optional[float] = Field(default=None, gt=0, le=1000000)
+    wholesale_price: Optional[float] = Field(default=None, gt=0, le=1000000)
 
 
 # Production Schema
@@ -121,6 +118,7 @@ class DailyStockRecordBase(BaseModel):
     production_stock: int = Field(default=0, ge=0)
     wholesale_quantity: int = Field(default=0, ge=0)
     retail_quantity: int = Field(default=0, ge=0)
+    supply_quantity: int = Field(default=0, ge=0)
     wholesale_revenue: float = Field(default=0.0, ge=0)
     retail_revenue: float = Field(default=0.0, ge=0)
 
@@ -134,6 +132,7 @@ class DailyStockRecordUpdate(BaseModel):
     production_stock: Optional[int] = Field(default=None, ge=0)
     wholesale_quantity: Optional[int] = Field(default=None, ge=0)
     retail_quantity: Optional[int] = Field(default=None, ge=0)
+    supply_quantity: Optional[int] = Field(default=None, ge=0)
     wholesale_revenue: Optional[float] = Field(default=None, ge=0)
     retail_revenue: Optional[float] = Field(default=None, ge=0)
 

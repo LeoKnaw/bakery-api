@@ -12,10 +12,10 @@ from datetime import date
 
 
 def calculate_closing_stock(
-    opening: int, production: int, wholesale: int, retail: int
+    opening: int, production: int, wholesale: int, retail: int, supply: int = 0
 ) -> int:
     """Calculate closing stock from components."""
-    return opening + production - wholesale - retail
+    return opening + production - wholesale - retail - supply
 
 
 def get_db():
@@ -70,6 +70,7 @@ def create_stock_routes(app: FastAPI, get_current_user, get_admin_user):
                 production_stock=0,
                 wholesale_quantity=0,
                 retail_quantity=0,
+                supply_quantity=0,
                 wholesale_revenue=0.0,
                 retail_revenue=0.0,
                 closing_stock=0,
@@ -162,6 +163,8 @@ def create_stock_routes(app: FastAPI, get_current_user, get_admin_user):
             record.wholesale_quantity = update.wholesale_quantity
         if update.retail_quantity is not None:
             record.retail_quantity = update.retail_quantity
+        if update.supply_quantity is not None:
+            record.supply_quantity = update.supply_quantity
         if update.wholesale_revenue is not None:
             record.wholesale_revenue = update.wholesale_revenue
         if update.retail_revenue is not None:
@@ -172,6 +175,7 @@ def create_stock_routes(app: FastAPI, get_current_user, get_admin_user):
             record.production_stock,
             record.wholesale_quantity,
             record.retail_quantity,
+            record.supply_quantity
         )
 
         db.commit()
@@ -199,6 +203,7 @@ def create_stock_routes(app: FastAPI, get_current_user, get_admin_user):
         total_production = sum(r.production_stock for r in records)
         total_wholesale_qty = sum(r.wholesale_quantity for r in records)
         total_retail_qty = sum(r.retail_quantity for r in records)
+        total_supply_qty = sum(r.supply_quantity for r in records)
         total_wholesale_rev = sum(r.wholesale_revenue for r in records)
         total_retail_rev = sum(r.retail_revenue for r in records)
         total_closing = sum(r.closing_stock for r in records)
@@ -216,11 +221,13 @@ def create_stock_routes(app: FastAPI, get_current_user, get_admin_user):
                     "total_production": 0,
                     "total_wholesale": 0,
                     "total_retail": 0,
+                    "total_supply": 0,
                     "total_revenue": 0,
                 }
             product_summary[pid]["total_production"] += record.production_stock
             product_summary[pid]["total_wholesale"] += record.wholesale_quantity
             product_summary[pid]["total_retail"] += record.retail_quantity
+            product_summary[pid]["total_supply"] += record.supply_quantity
             product_summary[pid]["total_revenue"] += (
                 record.wholesale_revenue + record.retail_revenue
             )
@@ -234,6 +241,7 @@ def create_stock_routes(app: FastAPI, get_current_user, get_admin_user):
                 "production_stock": total_production,
                 "wholesale_quantity": total_wholesale_qty,
                 "retail_quantity": total_retail_qty,
+                "supply_quantity": total_supply_qty,
                 "wholesale_revenue": total_wholesale_rev,
                 "retail_revenue": total_retail_rev,
                 "closing_stock": total_closing,

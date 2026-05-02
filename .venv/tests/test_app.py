@@ -125,7 +125,11 @@ async def get_products(db: Session = Depends(get_db)):
     dependencies=[Depends(verify_api_key)],
 )
 async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
-    db_product = Product(name=product.name, price=product.price)
+    db_product = Product(
+        name=product.name,
+        price=product.price,
+        wholesale_price=product.wholesale_price,
+    )
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
@@ -145,8 +149,12 @@ async def update_product(
     if not product:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
 
-    product.name = updated.name
-    product.price = updated.price
+    if updated.name is not None:
+        product.name = updated.name
+    if updated.price is not None:
+        product.price = updated.price
+    if updated.wholesale_price is not None:
+        product.wholesale_price = updated.wholesale_price
 
     db.commit()
     db.refresh(product)
@@ -450,10 +458,10 @@ async def get_all_users(
 
 
 def calculate_closing_stock(
-    opening: int, production: int, wholesale: int, retail: int
+    opening: int, production: int, wholesale: int, retail: int, supply: int = 0
 ) -> int:
     """Calculate closing stock from components."""
-    return opening + production - wholesale - retail
+    return opening + production - wholesale - retail - supply
 
 
 @app.post("/stock/daily", response_model=List[DailyStockRecordWithProduct])
@@ -580,12 +588,15 @@ async def update_daily_stock_record(
         record.wholesale_revenue = update.wholesale_revenue
     if update.retail_revenue is not None:
         record.retail_revenue = update.retail_revenue
+    if update.supply_quantity is not None:
+        record.supply_quantity = update.supply_quantity
 
     record.closing_stock = calculate_closing_stock(
         record.opening_stock,
         record.production_stock,
         record.wholesale_quantity,
         record.retail_quantity,
+        record.supply_quantity,
     )
 
     db.commit()
@@ -614,6 +625,7 @@ async def get_stock_summary(
     total_production = sum(r.production_stock for r in records)
     total_wholesale_qty = sum(r.wholesale_quantity for r in records)
     total_retail_qty = sum(r.retail_quantity for r in records)
+    total_supply_qty = sum(r.supply_quantity for r in records)
     total_wholesale_rev = sum(r.wholesale_revenue for r in records)
     total_retail_rev = sum(r.retail_revenue for r in records)
     total_closing = sum(r.closing_stock for r in records)
@@ -629,11 +641,13 @@ async def get_stock_summary(
                 "total_production": 0,
                 "total_wholesale": 0,
                 "total_retail": 0,
+                "total_supply": 0,
                 "total_revenue": 0,
             }
         product_summary[pid]["total_production"] += record.production_stock
         product_summary[pid]["total_wholesale"] += record.wholesale_quantity
         product_summary[pid]["total_retail"] += record.retail_quantity
+        product_summary[pid]["total_supply"] += record.supply_quantity
         product_summary[pid]["total_revenue"] += (
             record.wholesale_revenue + record.retail_revenue
         )
@@ -647,6 +661,7 @@ async def get_stock_summary(
             "production_stock": total_production,
             "wholesale_quantity": total_wholesale_qty,
             "retail_quantity": total_retail_qty,
+            "supply_quantity": total_supply_qty,
             "wholesale_revenue": total_wholesale_rev,
             "retail_revenue": total_retail_rev,
             "closing_stock": total_closing,

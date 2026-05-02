@@ -38,6 +38,7 @@ class Product(Base):
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
+    wholesale_price = Column(Float, nullable=True)
     is_active = Column(Boolean, default=True)
 
 
@@ -96,6 +97,7 @@ class DailyStockRecord(Base):
     production_stock = Column(Integer, default=0)
     wholesale_quantity = Column(Integer, default=0)
     retail_quantity = Column(Integer, default=0)
+    supply_quantity = Column(Integer, default=0)
     wholesale_revenue = Column(Float, default=0.0)
     retail_revenue = Column(Float, default=0.0)
     closing_stock = Column(Integer, default=0)

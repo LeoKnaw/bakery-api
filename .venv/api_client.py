@@ -119,11 +119,11 @@ def get_products() -> list:
     return response.json()
 
 
-def create_product(name: str, price: float) -> dict:
+def create_product(name: str, price: float, wholesale_price: float) -> dict:
     """Create a new product."""
     response = requests.post(
         f"{BASE_URL}/fadel/products",
-        json={"name": name, "price": price},
+        json={"name": name, "price": price, "wholesale_price": wholesale_price},
         headers=HEADERS,
     )
     response.raise_for_status()
@@ -131,7 +131,7 @@ def create_product(name: str, price: float) -> dict:
 
 
 def update_product(
-    product_id: str, name: Optional[str] = None, price: Optional[float] = None
+    product_id: str, name: Optional[str] = None, price: Optional[float] = None, wholesale_price: Optional[float] = None
 ) -> dict:
     """Update an existing product."""
     payload = {}
@@ -139,6 +139,8 @@ def update_product(
         payload["name"] = name
     if price is not None:
         payload["price"] = price
+    if wholesale_price is not None:
+        payload["wholesale_price"] = wholesale_price
 
     response = requests.put(
         f"{BASE_URL}/fadel/products/{product_id}",
@@ -277,6 +279,7 @@ def update_daily_stock_record(
     production_stock: Optional[int] = None,
     wholesale_quantity: Optional[int] = None,
     retail_quantity: Optional[int] = None,
+    supply_quantity: Optional[int] = None,
     wholesale_revenue: Optional[float] = None,
     retail_revenue: Optional[float] = None,
 ) -> dict:
@@ -290,6 +293,8 @@ def update_daily_stock_record(
         payload["wholesale_quantity"] = wholesale_quantity
     if retail_quantity is not None:
         payload["retail_quantity"] = retail_quantity
+    if supply_quantity is not None:
+        payload["supply_quantity"] = supply_quantity
     if wholesale_revenue is not None:
         payload["wholesale_revenue"] = wholesale_revenue
     if retail_revenue is not None:

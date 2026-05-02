@@ -125,7 +125,11 @@ async def get_products(db: Session = Depends(get_db)):
     dependencies=[Depends(verify_api_key)],
 )
 async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
-    db_product = Product(name=product.name, price=product.price)
+    db_product = Product(
+        name=product.name,
+        price=product.price,
+        wholesale_price=product.wholesale_price,
+    )
     db.add(db_product)
     db.commit()
     db.refresh(db_product)
@@ -145,8 +149,12 @@ async def update_product(
     if not product:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
 
-    product.name = updated.name
-    product.price = updated.price
+    if updated.name is not None:
+        product.name = updated.name
+    if updated.price is not None:
+        product.price = updated.price
+    if updated.wholesale_price is not None:
+        product.wholesale_price = updated.wholesale_price
 
     db.commit()
     db.refresh(product)

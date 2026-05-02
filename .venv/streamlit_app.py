@@ -194,21 +194,22 @@ def show_products():
     # Add new product form
     with st.expander("Add New Product", expanded=False):
         with st.form("add_product", clear_on_submit=True):
-            col1, col2, col3 = st.columns([3, 2, 1])
+            col1, col2, col3 = st.columns([3, 2, 2])
             with col1:
                 name = st.text_input("Product Name")
             with col2:
                 price = st.number_input(
-                    "Price (₦)", min_value=50, step=50, format="%.2f"
+                    "Retail Price (₦)", min_value=50, step=50, format="%.2f"
                 )
             with col3:
-                st.write("")
-                st.write("")
-                submitted = st.form_submit_button("Add Product")
+                wholesale_price = st.number_input(
+                    "Wholesale Price (₦)", min_value=50, step=50, format="%.2f"
+                )
+            submitted = st.form_submit_button("Add Product")
 
             if submitted and name:
                 try:
-                    api_client.create_product(name, price)
+                    api_client.create_product(name, price, wholesale_price)
                     st.success(f"Added '{name}'!")
                     st.rerun()
                 except Exception as e:
@@ -225,19 +226,26 @@ def show_products():
         # Create a table-like display
         st.markdown("---")
 
-        for product in products:
-            # Show edit form if this product is being edited
+for product in products:
             if st.session_state.editing_product == product["id"]:
                 with st.form(f"edit_form_{product['id']}"):
                     st.write(f"**Editing: {product['name']}**")
-                    col1, col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         edit_name = st.text_input("Product Name", value=product["name"])
                     with col2:
                         edit_price = st.number_input(
-                            "Price (₦)",
+                            "Retail Price (₦)",
                             min_value=50,
                             value=int(product["price"]),
+                            step=50,
+                            format="%.2f",
+                        )
+                    with col3:
+                        edit_wholesale_price = st.number_input(
+                            "Wholesale Price (₦)",
+                            min_value=50,
+                            value=int(product.get("wholesale_price", 0) or 0),
                             step=50,
                             format="%.2f",
                         )
@@ -246,11 +254,17 @@ def show_products():
                         if st.form_submit_button("Save", type="primary"):
                             try:
                                 api_client.update_product(
-                                    product["id"], edit_name, edit_price
+                                    product["id"], edit_name, edit_price, edit_wholesale_price
                                 )
                                 st.success("Product updated!")
                                 st.session_state.editing_product = None
                                 st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                    with col2:
+                        if st.form_submit_button("Cancel"):
+                            st.session_state.editing_product = None
+                            st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
                     with col2:
@@ -265,7 +279,11 @@ def show_products():
                 with col2:
                     st.write(f"₦{product['price']:.2f}")
                 with col3:
-                    st.write(f"₦{product['wholesale_price']:.2f}")
+                    ws_price = product.get("wholesale_price")
+                    if ws_price is not None:
+                        st.write(f"₦{ws_price:.2f}")
+                    else:
+                        st.write("-")
                 with col4:
                     if st.button("Edit", key=f"edit_{product['id']}"):
                         st.session_state.editing_product = product["id"]

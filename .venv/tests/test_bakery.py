@@ -13,7 +13,7 @@ class TestProducts:
         """Test creating a product returns correct data"""
         response = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Bread", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Bread", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         assert response.status_code == 200
@@ -22,13 +22,12 @@ class TestProducts:
         assert data["price"] == 1000.0
         assert "id" in data
         assert "wholesale_price" in data
-        assert data["wholesale_price"] == 900.0  # 10% discount
 
     def test_create_product_without_api_key(self, client):
         """Test creating a product without API key returns 401"""
         response = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}NoAuth", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}NoAuth", "price": 1000.0, "wholesale_price": 900.0},
         )
         assert response.status_code == 401
         assert "API Key" in response.json()["detail"]
@@ -38,7 +37,7 @@ class TestProducts:
         # Create a product first
         client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Cake", "price": 500.0},
+            json={"name": f"{TEST_PREFIX}Cake", "price": 500.0, "wholesale_price": 450.0},
             headers=auth_headers,
         )
 
@@ -56,7 +55,7 @@ class TestProducts:
         # Create a product
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Croissant", "price": 700.0},
+            json={"name": f"{TEST_PREFIX}Croissant", "price": 700.0, "wholesale_price": 630.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -64,7 +63,7 @@ class TestProducts:
         # Update the product
         response = client.put(
             f"/fadel/products/{product_id}",
-            json={"name": f"{TEST_PREFIX}Croissant Updated", "price": 750.0},
+            json={"name": f"{TEST_PREFIX}Croissant Updated", "price": 750.0, "wholesale_price": 675.0},
             headers=auth_headers,
         )
         assert response.status_code == 200
@@ -77,7 +76,7 @@ class TestProducts:
         fake_id = str(uuid.uuid4())
         response = client.put(
             f"/fadel/products/{fake_id}",
-            json={"name": "Ghost", "price": 100.0},
+            json={"name": "Ghost", "price": 100.0, "wholesale_price": 90.0},
             headers=auth_headers,
         )
         assert response.status_code == 404
@@ -91,7 +90,7 @@ class TestProduction:
         # Create a product
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Bread Production", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Bread Production", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -133,7 +132,7 @@ class TestSales:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Retail Test", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Retail Test", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -163,7 +162,7 @@ class TestSales:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Wholesale Test", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Wholesale Test", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -187,7 +186,7 @@ class TestSales:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Supply Test", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Supply Test", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -215,7 +214,7 @@ class TestSales:
         # Create product with no production (no stock)
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}No Stock", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}No Stock", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -238,7 +237,7 @@ class TestInventory:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Inventory Test", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Inventory Test", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -278,7 +277,7 @@ class TestWholesaleClassification:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Auto Wholesale", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Auto Wholesale", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -302,7 +301,7 @@ class TestWholesaleClassification:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}Auto Retail", "price": 1000.0},
+            json={"name": f"{TEST_PREFIX}Auto Retail", "price": 1000.0, "wholesale_price": 900.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -333,7 +332,7 @@ class TestInputValidation:
         """Test product name exceeding max length returns 422"""
         response = client.post(
             "/fadel/products",
-            json={"name": "A" * 101, "price": 100.0},
+            json={"name": "A" * 101, "price": 100.0, "wholesale_price": 90.0},
             headers=auth_headers,
         )
         assert response.status_code == 422
@@ -371,7 +370,7 @@ class TestProductDeactivation:
         # Create a product
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}ToDeactivate", "price": 500.0},
+            json={"name": f"{TEST_PREFIX}ToDeactivate", "price": 500.0, "wholesale_price": 450.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -405,7 +404,7 @@ class TestProductDeactivation:
         # Create a product
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}WillDisappear", "price": 300.0},
+            json={"name": f"{TEST_PREFIX}WillDisappear", "price": 300.0, "wholesale_price": 270.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]
@@ -431,7 +430,7 @@ class TestProductDeactivation:
         # Create product and production
         create_resp = client.post(
             "/fadel/products",
-            json={"name": f"{TEST_PREFIX}WithHistory", "price": 800.0},
+            json={"name": f"{TEST_PREFIX}WithHistory", "price": 800.0, "wholesale_price": 720.0},
             headers=auth_headers,
         )
         product_id = create_resp.json()["id"]

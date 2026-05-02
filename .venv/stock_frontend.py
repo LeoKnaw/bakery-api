@@ -180,21 +180,25 @@ def show_products():
 
     with st.expander("Add New Product", expanded=False):
         with st.form("add_product", clear_on_submit=True):
-            col1, col2, col3 = st.columns([3, 2, 1])
+            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
             with col1:
                 name = st.text_input("Product Name")
             with col2:
                 price = st.number_input(
-                    "Price (₦)", min_value=50, step=50, format="%.2f"
+                    "Retail Price (₦)", min_value=50, step=50, format="%.2f"
                 )
             with col3:
+                wholesale_price = st.number_input(
+                    "Wholesale Price (₦)", min_value=50, step=50, format="%.2f"
+                )
+            with col4:
                 st.write("")
                 st.write("")
                 submitted = st.form_submit_button("Add Product")
 
             if submitted and name:
                 try:
-                    api_client.create_product(name, price)
+                    api_client.create_product(name, price, wholesale_price)
                     st.success(f"Added '{name}'!")
                     st.rerun()
                 except Exception as e:
@@ -213,14 +217,22 @@ def show_products():
             if st.session_state.editing_product == product["id"]:
                 with st.form(f"edit_form_{product['id']}"):
                     st.write(f"**Editing: {product['name']}**")
-                    col1, col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         edit_name = st.text_input("Product Name", value=product["name"])
                     with col2:
                         edit_price = st.number_input(
-                            "Price (₦)",
+                            "Retail Price (₦)",
                             min_value=50,
                             value=int(product["price"]),
+                            step=50,
+                            format="%.2f",
+                        )
+                    with col3:
+                        edit_wholesale_price = st.number_input(
+                            "Wholesale Price (₦)",
+                            min_value=50,
+                            value=int(product.get("wholesale_price", 0) or 0),
                             step=50,
                             format="%.2f",
                         )
@@ -229,7 +241,7 @@ def show_products():
                         if st.form_submit_button("Save", type="primary"):
                             try:
                                 api_client.update_product(
-                                    product["id"], edit_name, edit_price
+                                    product["id"], edit_name, edit_price, edit_wholesale_price
                                 )
                                 st.session_state.editing_product = None
                                 st.success(f"Updated '{edit_name}'!")
@@ -247,7 +259,11 @@ def show_products():
                 with col2:
                     st.write(f"₦{product['price']:,.2f}")
                 with col3:
-                    st.write(f"WS: ₦{product['wholesale_price']:,.2f}")
+                    ws_price = product.get("wholesale_price")
+                    if ws_price is not None:
+                        st.write(f"WS: ₦{ws_price:,.2f}")
+                    else:
+                        st.write("WS: -")
                 with col4:
                     if st.button("Edit", key=f"edit_{product['id']}"):
                         st.session_state.editing_product = product["id"]
@@ -276,7 +292,9 @@ def show_daily_stock():
 
         product_options = {p["id"]: p["name"] for p in products}
         product_prices = {p["id"]: p["price"] for p in products}
-        product_ws_prices = {p["id"]: p["wholesale_price"] for p in products}
+        product_ws_prices = {
+            p["id"]: p.get("wholesale_price") or 0 for p in products
+        }
 
         col1, col2 = st.columns([1, 3])
         with col1:
@@ -318,6 +336,7 @@ def show_daily_stock():
                                 "production_stock": 0,
                                 "wholesale_quantity": 0,
                                 "retail_quantity": 0,
+                                "supply_quantity": 0,
                                 "wholesale_revenue": 0.0,
                                 "retail_revenue": 0.0,
                                 "closing_stock": prev_closing_map.get(prod_id, 0),
@@ -339,13 +358,14 @@ def show_daily_stock():
             st.markdown("---")
             st.subheader(f"Records for {record_date}")
 
-            header_cols = st.columns([2, 1, 1, 1, 1, 1, 1, 1, 1])
+            header_cols = st.columns([2, 1, 1, 1, 1, 1, 1, 1, 1, 1])
             headers = [
                 "Product",
                 "Opening",
                 "Production",
                 "WS Qty",
                 "RT Qty",
+                "Supply",
                 "WS Rev",
                 "RT Rev",
                 "Total Rev",
@@ -365,7 +385,7 @@ def show_daily_stock():
                 price = product_prices.get(prod_id, 0)
                 ws_price = product_ws_prices.get(prod_id, 0)
 
-                row_cols = st.columns([2, 1, 1, 1, 1, 1, 1, 1, 1])
+                row_cols = st.columns([2, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
                 with row_cols[0]:
                     st.write(f"**{prod_name}**")
@@ -406,18 +426,27 @@ def show_daily_stock():
                         label_visibility="collapsed",
                     )
 
+                with row_cols[5]:
+                    supply = st.number_input(
+                        "Supply",
+                        min_value=0,
+                        value=rec.get("supply_quantity", 0),
+                        key=f"supply_{i}",
+                        label_visibility="collapsed",
+                    )
+
                 ws_rev = wholesale * ws_price
                 rt_rev = retail * price
                 total_rev = ws_rev + rt_rev
-                closing = opening + production - wholesale - retail
+                closing = opening + production - wholesale - retail - supply
 
-                with row_cols[5]:
-                    st.write(f"₦{ws_rev:,.0f}")
                 with row_cols[6]:
-                    st.write(f"₦{rt_rev:,.0f}")
+                    st.write(f"₦{ws_rev:,.0f}")
                 with row_cols[7]:
-                    st.write(f"₦{total_rev:,.0f}")
+                    st.write(f"₦{rt_rev:,.0f}")
                 with row_cols[8]:
+                    st.write(f"₦{total_rev:,.0f}")
+                with row_cols[9]:
                     st.write(f"**{closing}**")
 
                 total_ws_rev += ws_rev
@@ -432,6 +461,7 @@ def show_daily_stock():
                         "production_stock": production,
                         "wholesale_quantity": wholesale,
                         "retail_quantity": retail,
+                        "supply_quantity": supply,
                         "wholesale_revenue": ws_rev,
                         "retail_revenue": rt_rev,
                         "closing_stock": closing,
@@ -456,6 +486,7 @@ def show_daily_stock():
                             production_stock=rec["production_stock"],
                             wholesale_quantity=rec["wholesale_quantity"],
                             retail_quantity=rec["retail_quantity"],
+                            supply_quantity=rec["supply_quantity"],
                             wholesale_revenue=rec["wholesale_revenue"],
                             retail_revenue=rec["retail_revenue"],
                         )
@@ -508,6 +539,7 @@ def show_daily_stock():
                                 "Production": r["production_stock"],
                                 "Wholesale": r["wholesale_quantity"],
                                 "Retail": r["retail_quantity"],
+                                "Supply": r.get("supply_quantity", 0),
                                 "Wholesale Rev": r["wholesale_revenue"],
                                 "Retail Rev": r["retail_revenue"],
                                 "Closing": r["closing_stock"],
@@ -538,7 +570,7 @@ def show_daily_stock():
                 )
 
                 st.markdown("### 📊 Overall Totals")
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 with col1:
                     st.metric("Total Production", summary["totals"]["production_stock"])
                 with col2:
@@ -546,6 +578,8 @@ def show_daily_stock():
                 with col3:
                     st.metric("Retail Sold", summary["totals"]["retail_quantity"])
                 with col4:
+                    st.metric("Supply", summary["totals"].get("supply_quantity", 0))
+                with col5:
                     st.metric(
                         "Total Revenue", f"₦{summary['totals']['total_revenue']:,.0f}"
                     )
@@ -562,7 +596,7 @@ def show_daily_stock():
                     st.markdown("### 📦 By Product")
                     for prod in summary["by_product"]:
                         with st.expander(f"{prod['product_name']}"):
-                            col1, col2, col3, col4 = st.columns(4)
+                            col1, col2, col3, col4, col5 = st.columns(5)
                             with col1:
                                 st.metric("Production", prod["total_production"])
                             with col2:
@@ -570,6 +604,8 @@ def show_daily_stock():
                             with col3:
                                 st.metric("Retail", prod["total_retail"])
                             with col4:
+                                st.metric("Supply", prod.get("total_supply", 0))
+                            with col5:
                                 st.metric("Revenue", f"₦{prod['total_revenue']:,.0f}")
 
             except Exception as e:
